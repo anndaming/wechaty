@@ -1,9 +1,10 @@
 #!/usr/bin/env ts-node
 
 /**
- *   Wechaty - https://github.com/chatie/wechaty
+ *   Wechaty Chatbot SDK - https://github.com/wechaty/wechaty
  *
- *   @copyright 2016-2018 Huan LI <zixia@zixia.net>
+ *   @copyright 2016 Huan LI (李卓桓) <https://github.com/huan>, and
+ *                   Wechaty Contributors <https://github.com/wechaty>.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,7 +19,6 @@
  *   limitations under the License.
  *
  */
-// tslint:disable:no-shadowed-variable
 import test  from 'blue-tape'
 
 import {
@@ -26,12 +26,12 @@ import {
 }                 from './puppet-manager'
 
 test('resolve an unsupported puppet name', async t => {
-  try {
-    await PuppetManager.resolve('fasdfsfasfsfdfs' as any)
-    t.fail('should reject')
-  } catch (e) {
-    t.pass('reject when options is a string: ' + e)
-  }
+  // try {
+  //   await PuppetManager.resolve('fasdfsfasfsfdfs')
+  //   t.fail('should reject')
+  // } catch (e) {
+  //   t.pass('reject when options is a string: ' + e)
+  // }
 
   try {
     await PuppetManager.resolve({ puppet: 'fadfdsafa' as any })
@@ -41,8 +41,8 @@ test('resolve an unsupported puppet name', async t => {
   }
 
   try {
-    await PuppetManager.resolve({ puppet: 'mock' })
-    t.pass('should allow "mock" as puppet name')
+    await PuppetManager.resolve({ puppet: 'wechaty-puppet-mock' })
+    t.pass('should allow "wechaty-puppet-mock" as puppet name')
   } catch (e) {
     t.fail('should pass "mock" as puppet name')
   }

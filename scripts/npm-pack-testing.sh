@@ -6,16 +6,17 @@ npm run pack
 
 TMPDIR="/tmp/npm-pack-testing.$$"
 mkdir "$TMPDIR"
-mv *-*.*.*.tgz "$TMPDIR"
+mv ./*-*.*.*.tgz "$TMPDIR"
 cp tests/fixtures/smoke-testing.ts "$TMPDIR"
 
 cd $TMPDIR
 npm init -y
 npm install --production \
-  *-*.*.*.tgz \
+  ./*-*.*.*.tgz \
   @types/node \
   is-pr \
-  typescript
+  typescript \
+  "wechaty-puppet-mock@$NPM_TAG" \
 
 ./node_modules/.bin/tsc \
   --lib esnext \

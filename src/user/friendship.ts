@@ -1,7 +1,8 @@
 /**
- *   Wechaty - https://github.com/chatie/wechaty
+ *   Wechaty Chatbot SDK - https://github.com/wechaty/wechaty
  *
- *   @copyright 2016-2018 Huan LI <zixia@zixia.net>
+ *   @copyright 2016 Huan LI (李卓桓) <https://github.com/huan>, and
+ *                   Wechaty Contributors <https://github.com/wechaty>.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -14,28 +15,26 @@
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- *   @ignore
  *
  */
+import { EventEmitter }     from 'events'
+import { instanceToClass }  from 'clone-class'
 
 import {
-  instanceToClass,
-}                   from 'clone-class'
-
-import {
-  Accessory,
-}                   from '../accessory'
+  Wechaty,
+}                   from '../wechaty'
 import {
   log,
 }                   from '../config'
 import {
   tryWait,
-}                   from '../helper-functions'
+}                   from '../helper-functions/mod'
 
 import {
   FriendshipPayload,
   FriendshipType,
-}                         from 'wechaty-puppet'
+  FriendshipSearchQueryFilter,
+}                                 from 'wechaty-puppet'
 
 import {
   Acceptable,
@@ -52,15 +51,17 @@ import {
  * 2. receive request(in friend event)
  * 3. confirmation friendship(friend event)
  *
- * [Examples/Friend-Bot]{@link https://github.com/Chatie/wechaty/blob/1523c5e02be46ebe2cc172a744b2fbe53351540e/examples/friend-bot.ts}
+ * [Examples/Friend-Bot]{@link https://github.com/wechaty/wechaty/blob/1523c5e02be46ebe2cc172a744b2fbe53351540e/examples/friend-bot.ts}
  */
-export class Friendship extends Accessory implements Acceptable {
+class Friendship extends EventEmitter implements Acceptable {
 
-  // tslint:disable-next-line:variable-name
+  static get wechaty  (): Wechaty { throw new Error('This class can not be used directory. See: https://github.com/wechaty/wechaty/issues/2027') }
+  get wechaty        (): Wechaty { throw new Error('This class can not be used directory. See: https://github.com/wechaty/wechaty/issues/2027') }
+
   public static Type = FriendshipType
 
   /**
-   * @private
+   * @ignore
    */
   public static load<T extends typeof Friendship> (
     this : T,
@@ -71,13 +72,37 @@ export class Friendship extends Accessory implements Acceptable {
   }
 
   /**
-   * @description
-   * use {@link Friendship#add} instead
-   * @deprecated
+   * Search a Friend by phone or weixin.
+   *
+   * The best practice is to search friend request once per minute.
+   * Remeber not to do this too frequently, or your account may be blocked.
+   *
+   * @param {FriendshipSearchCondition} condition - Search friend by phone or weixin.
+   * @returns {Promise<Contact>}
+   *
+   * @example
+   * const friend_phone = await bot.Friendship.search({phone: '13112341234'})
+   * const friend_weixin = await bot.Friendship.search({weixin: 'weixin_account'})
+   *
+   * console.log(`This is the new friend info searched by phone : ${friend_phone}`)
+   * await bot.Friendship.add(friend_phone, 'hello')
+   *
    */
-  public static async send (contact: Contact,  hello: string) {
-    log.warn('Friendship', 'static send() DEPRECATED， use add() instead.')
-    return this.add(contact, hello)
+  public static async search (
+    queryFiter : FriendshipSearchQueryFilter,
+  ): Promise<null | Contact> {
+    log.verbose('Friendship', 'static search("%s")',
+      JSON.stringify(queryFiter),
+    )
+    const contactId = await this.wechaty.puppet.friendshipSearch(queryFiter)
+
+    if (!contactId) {
+      return null
+    }
+
+    const contact = this.wechaty.Contact.load(contactId)
+    await contact.ready()
+    return contact
   }
 
   /**
@@ -104,7 +129,7 @@ export class Friendship extends Accessory implements Acceptable {
       contact.id,
       hello,
     )
-    await this.puppet.friendshipAdd(contact.id, hello)
+    await this.wechaty.puppet.friendshipAdd(contact.id, hello)
   }
 
   public static async del (
@@ -114,42 +139,6 @@ export class Friendship extends Accessory implements Acceptable {
     throw new Error('to be implemented')
   }
 
-  // public static createConfirm(
-  //   contactId: string,
-  // ): FriendRequestPayload {
-  //   log.verbose('Friendship', 'createConfirm(%s)',
-  //                                         contactId,
-  //               )
-
-  //   const payload: FriendRequestPayloadConfirm = {
-  //     type : FriendRequestType.Confirm,
-  //     contactId,
-  //   }
-
-  //   return payload
-  // }
-
-  // public static createReceive(
-  //   contactId : string,
-  //   hello     : string,
-  //   ticket    : string,
-  // ): FriendRequestPayload {
-  //   log.verbose('Friendship', 'createReceive(%s, %s, %s)',
-  //                                         contactId,
-  //                                         hello,
-  //                                         ticket,
-  //               )
-
-  //   const payload: FriendRequestPayloadReceive = {
-  //     type : FriendRequestType.Receive,
-  //     contactId,
-  //     hello,
-  //     ticket,
-  //   }
-
-  //   return payload
-  // }
-
   /**
    *
    * Instance Properties
@@ -157,25 +146,27 @@ export class Friendship extends Accessory implements Acceptable {
    */
 
   /**
-   * @ignore
+    * @ignore
    */
   protected payload?: FriendshipPayload
 
+  /*
+   * @hideconstructor
+   */
   constructor (
-    public id: string,
+    public readonly id: string,
   ) {
     super()
     log.verbose('Friendship', 'constructor(id=%s)', id)
 
-    // tslint:disable-next-line:variable-name
     const MyClass = instanceToClass(this, Friendship)
 
     if (MyClass === Friendship) {
-      throw new Error('Friendship class can not be instanciated directly! See: https://github.com/Chatie/wechaty/issues/1217')
+      throw new Error('Friendship class can not be instantiated directly! See: https://github.com/wechaty/wechaty/issues/1217')
     }
 
-    if (!this.puppet) {
-      throw new Error('Friendship class can not be instanciated without a puppet!')
+    if (!this.wechaty.puppet) {
+      throw new Error('Friendship class can not be instantiated without a puppet!')
     }
   }
 
@@ -199,18 +190,20 @@ export class Friendship extends Accessory implements Acceptable {
 
   /**
    * no `dirty` support because Friendship has no rawPayload(yet)
-   * @ignore
+    * @ignore
    */
   public async ready (): Promise<void> {
     if (this.isReady()) {
       return
     }
 
-    this.payload = await this.puppet.friendshipPayload(this.id)
+    this.payload = await this.wechaty.puppet.friendshipPayload(this.id)
 
     if (!this.payload) {
       throw new Error('no payload')
     }
+
+    await this.contact().ready()
   }
 
   /**
@@ -256,7 +249,7 @@ export class Friendship extends Accessory implements Acceptable {
 
     log.silly('Friendship', 'accept() to %s', this.payload.contactId)
 
-    await this.puppet.friendshipAccept(this.id)
+    await this.wechaty.puppet.friendshipAccept(this.id)
 
     const contact = this.contact()
 
@@ -355,4 +348,81 @@ export class Friendship extends Accessory implements Acceptable {
       : FriendshipType.Unknown
   }
 
+  /**
+   * get friendShipPayload Json
+   * @returns {FriendshipPayload}
+   *
+   * @example
+   * const bot = new Wechaty()
+   * bot.on('friendship', async friendship => {
+   *   try {
+   *     // JSON.stringify(friendship) as well.
+   *     const payload = await friendship.toJSON()
+   *   } catch (e) {
+   *     console.error(e)
+   *   }
+   * }
+   * .start()
+   */
+  public toJSON (): string {
+    log.verbose('Friendship', 'toJSON()')
+
+    if (!this.isReady()) {
+      throw new Error(`Friendship<${this.id}> needs to be ready. Please call ready() before toJSON()`)
+    }
+    return JSON.stringify(this.payload)
+  }
+
+  /**
+   * create friendShip by friendshipJson
+   * @example
+   * const bot = new Wechaty()
+   * bot.start()
+   *
+   * const payload = '{...}'  // your saved JSON payload
+   * const friendship = bot.FriendShip.fromJSON(friendshipFromDisk)
+   * await friendship.accept()
+   */
+  public static async fromJSON (
+    payload: string | FriendshipPayload,
+  ): Promise<Friendship> {
+    log.verbose('Friendship', 'static fromJSON(%s)',
+      typeof payload === 'string'
+        ? payload
+        : JSON.stringify(payload),
+    )
+
+    if (typeof payload === 'string') {
+      payload = JSON.parse(payload) as FriendshipPayload
+    }
+
+    /**
+     * Set the payload back to the puppet for future use
+     */
+    await this.wechaty.puppet.friendshipPayload(payload.id, payload)
+
+    const instance = this.wechaty.Friendship.load(payload.id)
+    await instance.ready()
+
+    return instance
+  }
+
+}
+
+function wechatifyFriendship (wechaty: Wechaty): typeof Friendship {
+
+  class WechatifiedFriendship extends Friendship {
+
+    static get wechaty  () { return wechaty }
+    get wechaty        () { return wechaty }
+
+  }
+
+  return WechatifiedFriendship
+
+}
+
+export {
+  Friendship,
+  wechatifyFriendship,
 }

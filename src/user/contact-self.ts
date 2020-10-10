@@ -1,7 +1,8 @@
 /**
- *   Wechaty - https://github.com/chatie/wechaty
+ *   Wechaty Chatbot SDK - https://github.com/wechaty/wechaty
  *
- *   @copyright 2016-2018 Huan LI <zixia@zixia.net>
+ *   @copyright 2016 Huan LI (李卓桓) <https://github.com/huan>, and
+ *                   Wechaty Contributors <https://github.com/wechaty>.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,13 +16,17 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  *
- *   @ignore
  */
-import { FileBox } from 'file-box'
+import {
+  FileBox,
+  log,
+}           from 'wechaty-puppet'
 
 import {
-  log,
-}           from '../config'
+  guardQrCodeValue,
+}                       from '../helper-functions/pure/guard-qr-code-value'
+
+import { Wechaty } from '../wechaty'
 
 import {
   Contact,
@@ -38,7 +43,7 @@ import {
  *   console.log(`user ${user} login`)
  * })
  */
-export class ContactSelf extends Contact {
+class ContactSelf extends Contact {
 
   // constructor (
   //   id: string,
@@ -67,10 +72,10 @@ export class ContactSelf extends Contact {
    * })
    *
    * @example <caption>SET the avatar for a bot</caption>
-   * import { FileBox }  from 'file-box'
+   * import { FileBox }  from 'wechaty'
    * bot.on('login', (user: ContactSelf) => {
    *   console.log(`user ${user} login`)
-   *   const fileBox = FileBox.fromUrl('https://chatie.io/wechaty/images/bot-qr-code.png')
+   *   const fileBox = FileBox.fromUrl('https://wechaty.github.io/wechaty/images/bot-qr-code.png')
    *   await user.avatar(fileBox)
    *   console.log(`Change bot avatar successfully!`)
    * })
@@ -84,11 +89,11 @@ export class ContactSelf extends Contact {
       return filebox
     }
 
-    if (this.id !== this.puppet.selfId()) {
+    if (this.id !== this.wechaty.puppet.selfId()) {
       throw new Error('set avatar only available for user self')
     }
 
-    await this.puppet.contactAvatar(this.id, file)
+    await this.wechaty.puppet.contactAvatar(this.id, file)
   }
 
   /**
@@ -109,7 +114,7 @@ export class ContactSelf extends Contact {
     log.verbose('Contact', 'qrcode()')
     let puppetId: string
     try {
-      puppetId = this.puppet.selfId()
+      puppetId = this.wechaty.puppet.selfId()
     } catch (e) {
       throw Error('Can not get qrcode, user might be either not logged in or already logged out')
     }
@@ -117,8 +122,8 @@ export class ContactSelf extends Contact {
       throw new Error('only can get qrcode for the login userself')
     }
 
-    const qrcodeValue = await this.puppet.contactSelfQrcode()
-    return qrcodeValue
+    const qrcodeValue = await this.wechaty.puppet.contactSelfQRCode()
+    return guardQrCodeValue(qrcodeValue)
   }
 
   /**
@@ -149,7 +154,7 @@ export class ContactSelf extends Contact {
 
     let puppetId: string
     try {
-      puppetId = this.puppet.selfId()
+      puppetId = this.wechaty.puppet.selfId()
     } catch (e) {
       throw Error('Can not set name for user self, user might be either not logged in or already logged out')
     }
@@ -158,7 +163,7 @@ export class ContactSelf extends Contact {
       throw new Error('only can set name for user self')
     }
 
-    return this.puppet.contactSelfName(name).then(this.sync.bind(this))
+    return this.wechaty.puppet.contactSelfName(name).then(this.sync.bind(this))
   }
 
   /**
@@ -181,7 +186,7 @@ export class ContactSelf extends Contact {
 
     let puppetId: string
     try {
-      puppetId = this.puppet.selfId()
+      puppetId = this.wechaty.puppet.selfId()
     } catch (e) {
       throw Error('Can not set signature for user self, user might be either not logged in or already logged out')
     }
@@ -190,7 +195,25 @@ export class ContactSelf extends Contact {
       throw new Error('only can change signature for user self')
     }
 
-    return this.puppet.contactSelfSignature(signature).then(this.sync.bind(this))
+    return this.wechaty.puppet.contactSelfSignature(signature).then(this.sync.bind(this))
   }
 
+}
+
+function wechatifyContactSelf (wechaty: Wechaty): typeof ContactSelf {
+
+  class WechatifiedContactSelf extends ContactSelf {
+
+    static get wechaty  () { return wechaty }
+    get wechaty        () { return wechaty }
+
+  }
+
+  return WechatifiedContactSelf
+
+}
+
+export {
+  ContactSelf,
+  wechatifyContactSelf,
 }

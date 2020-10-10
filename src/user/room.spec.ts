@@ -1,8 +1,9 @@
 #!/usr/bin/env ts-node
 /**
- *   Wechaty - https://github.com/chatie/wechaty
+ *   Wechaty Chatbot SDK - https://github.com/wechaty/wechaty
  *
- *   @copyright 2016-2018 Huan LI <zixia@zixia.net>
+ *   @copyright 2016 Huan LI (李卓桓) <https://github.com/huan>, and
+ *                   Wechaty Contributors <https://github.com/wechaty>.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -17,9 +18,6 @@
  *   limitations under the License.
  *
  */
-// tslint:disable:no-shadowed-variable
-// tslint:disable:max-classes-per-file
-
 import test  from 'blue-tape'
 import sinon from 'sinon'
 
@@ -113,7 +111,8 @@ test('say()', async () => {
     await room.say`To be ${contact1} or not to be ${contact2}`
 
     t.deepEqual(callback.getCall(0).args, [
-      { contactId: EXPECTED_CONTACT_1_ID, roomId: EXPECTED_ROOM_ID },
+      // { contactId: EXPECTED_CONTACT_1_ID, roomId: EXPECTED_ROOM_ID },
+      EXPECTED_ROOM_ID,
       'To be @little1 or not to be @big2',
       [EXPECTED_CONTACT_1_ID, EXPECTED_CONTACT_2_ID],
     ], 'Tagged Template say should be matched')
@@ -124,7 +123,8 @@ test('say()', async () => {
     await room.say('Yo', contact1)
 
     t.deepEqual(callback.getCall(0).args, [
-      { contactId: EXPECTED_CONTACT_1_ID, roomId: EXPECTED_ROOM_ID },
+      // { contactId: EXPECTED_CONTACT_1_ID, roomId: EXPECTED_ROOM_ID },
+      EXPECTED_ROOM_ID,
       '@little1 Yo',
       [EXPECTED_CONTACT_1_ID],
     ], 'Single mention should work with old ways')
@@ -135,7 +135,8 @@ test('say()', async () => {
     await room.say('hey buddies, let\'s party', contact1, contact2)
 
     t.deepEqual(callback.getCall(0).args, [
-      { contactId: EXPECTED_CONTACT_1_ID, roomId: EXPECTED_ROOM_ID },
+      // { contactId: EXPECTED_CONTACT_1_ID, roomId: EXPECTED_ROOM_ID },
+      EXPECTED_ROOM_ID,
       '@little1 @big2 hey buddies, let\'s party',
       [EXPECTED_CONTACT_1_ID, EXPECTED_CONTACT_2_ID],
     ], 'Multiple mention should work with new way')

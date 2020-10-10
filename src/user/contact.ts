@@ -1,7 +1,8 @@
 /**
- *   Wechaty - https://github.com/chatie/wechaty
+ *   Wechaty Chatbot SDK - https://github.com/wechaty/wechaty
  *
- *   @copyright 2016-2018 Huan LI <zixia@zixia.net>
+ *   @copyright 2016 Huan LI (李卓桓) <https://github.com/huan>, and
+ *                   Wechaty Contributors <https://github.com/wechaty>.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,69 +16,76 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  *
- *   @ignore
  */
 import { instanceToClass }  from 'clone-class'
-import { FileBox }          from 'file-box'
 
 import {
   ContactGender,
   ContactPayload,
   ContactQueryFilter,
   ContactType,
+  FileBox,
+  PayloadType,
 }                         from 'wechaty-puppet'
 
+import { Wechaty } from '../wechaty'
+
 import {
-  Accessory,
-}                   from '../accessory'
-import {
+  Raven,
+
   log,
   qrCodeForChatie,
-  Raven,
 }                   from '../config'
 import {
   Sayable,
 }                   from '../types'
 
-import { UrlLink }  from './url-link'
+import { Message }      from './message'
+import { MiniProgram }  from './mini-program'
+import { Tag }          from './tag'
+import { UrlLink }      from './url-link'
+
+import { ContactEventEmitter } from '../events/contact-events'
 
 export const POOL = Symbol('pool')
 
 /**
  * All wechat contacts(friend) will be encapsulated as a Contact.
- * [Examples/Contact-Bot]{@link https://github.com/Chatie/wechaty/blob/1523c5e02be46ebe2cc172a744b2fbe53351540e/examples/contact-bot.ts}
+ * [Examples/Contact-Bot]{@link https://github.com/wechaty/wechaty/blob/1523c5e02be46ebe2cc172a744b2fbe53351540e/examples/contact-bot.ts}
  *
  * @property {string}  id               - Get Contact id.
- * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/Chatie/wechaty/wiki/Puppet#3-puppet-compatible-table)
+ * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/wechaty/wechaty/wiki/Puppet#3-puppet-compatible-table)
  */
-export class Contact extends Accessory implements Sayable {
+class Contact extends ContactEventEmitter implements Sayable {
 
-  // tslint:disable-next-line:variable-name
+  static get wechaty  (): Wechaty { throw new Error('This class can not be used directory. See: https://github.com/wechaty/wechaty/issues/2027') }
+  get wechaty        (): Wechaty { throw new Error('This class can not be used directory. See: https://github.com/wechaty/wechaty/issues/2027') }
+
   public static Type   = ContactType
-  // tslint:disable-next-line:variable-name
   public static Gender = ContactGender
 
   protected static [POOL]: Map<string, Contact>
   protected static get pool () {
     return this[POOL]
   }
+
   protected static set pool (newPool: Map<string, Contact>) {
     if (this === Contact) {
       throw new Error(
         'The global Contact class can not be used directly!'
-        + 'See: https://github.com/Chatie/wechaty/issues/1217',
+        + 'See: https://github.com/wechaty/wechaty/issues/1217',
       )
     }
     this[POOL] = newPool
   }
 
   /**
-   * @private
+   * @ignore
    * About the Generic: https://stackoverflow.com/q/43003970/1123955
    *
    * Get Contact by id
    * > Tips:
-   * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/Chatie/wechaty/wiki/Puppet#3-puppet-compatible-table)
+   * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/wechaty/wechaty/wiki/Puppet#3-puppet-compatible-table)
    *
    * @static
    * @param {string} id
@@ -97,8 +105,8 @@ export class Contact extends Accessory implements Sayable {
     }
     if (this === Contact) {
       throw new Error(
-        'The lgobal Contact class can not be used directly!'
-        + 'See: https://github.com/Chatie/wechaty/issues/1217',
+        'The global Contact class can not be used directly!'
+        + 'See: https://github.com/wechaty/wechaty/issues/1217',
       )
     }
     if (this.pool === Contact.pool) {
@@ -124,7 +132,7 @@ export class Contact extends Accessory implements Sayable {
    * @typedef    ContactQueryFilter
    * @property   {string} name    - The name-string set by user-self, should be called name
    * @property   {string} alias   - The name-string set by bot for others, should be called alias
-   * [More Detail]{@link https://github.com/Chatie/wechaty/issues/365}
+   * [More Detail]{@link https://github.com/wechaty/wechaty/issues/365}
    */
 
   /**
@@ -164,11 +172,11 @@ export class Contact extends Accessory implements Sayable {
     for (n = 0; n < contactList.length; n++) {
       const contact = contactList[n]
       // use puppet.contactValidate() to confirm double confirm that this contactId is valid.
-      // https://github.com/lijiarui/wechaty-puppet-padchat/issues/64
-      // https://github.com/Chatie/wechaty/issues/1345
-      const valid = await this.puppet.contactValidate(contact.id)
+      // https://github.com/wechaty/wechaty-puppet-padchat/issues/64
+      // https://github.com/wechaty/wechaty/issues/1345
+      const valid = await this.wechaty.puppet.contactValidate(contact.id)
       if (valid) {
-        log.verbose('Contact', 'find() confirm contact[#%d] with id=%d is vlaid result, return it.',
+        log.verbose('Contact', 'find() confirm contact[#%d] with id=%d is valid result, return it.',
           n,
           contact.id,
         )
@@ -200,7 +208,7 @@ export class Contact extends Accessory implements Sayable {
    * const bot = new Wechaty()
    * await bot.start()
    * const contactList = await bot.Contact.findAll()                      // get the contact list of the bot
-   * const contactList = await bot.Contact.findAll({ name: 'ruirui' })    // find allof the contacts whose name is 'ruirui'
+   * const contactList = await bot.Contact.findAll({ name: 'ruirui' })    // find all of the contacts whose name is 'ruirui'
    * const contactList = await bot.Contact.findAll({ alias: 'lijiarui' }) // find all of the contacts whose alias is 'lijiarui'
    */
   public static async findAll<T extends typeof Contact> (
@@ -209,12 +217,8 @@ export class Contact extends Accessory implements Sayable {
   ): Promise<Array<T['prototype']>> {
     log.verbose('Contact', 'findAll(%s)', JSON.stringify(query) || '')
 
-    if (query && Object.keys(query).length !== 1) {
-      throw new Error('query only support one key. multi key support is not availble now.')
-    }
-
     try {
-      const contactIdList: string[] = await this.puppet.contactSearch(query)
+      const contactIdList: string[] = await this.wechaty.puppet.contactSearch(query)
       const contactList = contactIdList.map(id => this.load(id))
 
       const BATCH_SIZE = 16
@@ -243,7 +247,7 @@ export class Contact extends Accessory implements Sayable {
       return contactList.filter(contact => !invalidDict[contact.id])
 
     } catch (e) {
-      log.error('Contact', 'this.puppet.contactFindAll() rejected: %s', e.message)
+      log.error('Contact', 'this.wechaty.puppet.contactFindAll() rejected: %s', e.message)
       return [] // fail safe
     }
   }
@@ -254,43 +258,59 @@ export class Contact extends Accessory implements Sayable {
   }
 
   /**
+   * Get tags for all contact
    *
-   * Instance properties
-   * @private
-   *
+   * @static
+   * @returns {Promise<Tag[]>}
+   * @example
+   * const tags = await wechaty.Contact.tags()
    */
-  protected payload?: ContactPayload
+  public static async tags (): Promise<Tag []> {
+    log.verbose('Contact', 'static tags() for %s', this)
 
-  public readonly id: string // Contact Id
-
-  /**
-   * @private
-   */
-  constructor (
-    id: string,
-  ) {
-    super()
-    log.silly('Contact', `constructor(${id})`)
-
-    this.id = id
-
-    // tslint:disable-next-line:variable-name
-    const MyClass = instanceToClass(this, Contact)
-
-    if (MyClass === Contact) {
-      throw new Error(
-        'Contact class can not be instanciated directly!'
-        + 'See: https://github.com/Chatie/wechaty/issues/1217',
-      )
-    }
-
-    if (!this.puppet) {
-      throw new Error('Contact class can not be instanciated without a puppet!')
+    try {
+      const tagIdList = await this.wechaty.puppet.tagContactList()
+      const tagList = tagIdList.map(id => this.wechaty.Tag.load(id))
+      return tagList
+    } catch (e) {
+      log.error('Contact', 'static tags() exception: %s', e.message)
+      return []
     }
   }
 
   /**
-   * @private
+   *
+   * Instance properties
+   * @ignore
+   *
+   */
+  protected payload?: ContactPayload
+
+  /**
+   * @hideconstructor
+   */
+  protected constructor (
+    public readonly id: string,
+  ) {
+    super()
+    log.silly('Contact', `constructor(${id})`)
+
+    const MyClass = instanceToClass(this, Contact)
+
+    if (MyClass === Contact) {
+      throw new Error(
+        'Contact class can not be instantiated directly!'
+        + 'See: https://github.com/wechaty/wechaty/issues/1217',
+      )
+    }
+
+    if (!this.wechaty) {
+      throw new Error('Contact class can not be instantiated without a wechaty instance!')
+    }
+  }
+
+  /**
+   * @ignore
    */
   public toString (): string {
     if (!this.payload) {
@@ -305,19 +325,22 @@ export class Contact extends Accessory implements Sayable {
     return `Contact<${identity}>`
   }
 
-  public async say (text: string)     : Promise<void>
-  public async say (file: FileBox)    : Promise<void>
-  public async say (contact: Contact) : Promise<void>
-  public async say (url: UrlLink)     : Promise<void>
+  public say (text:     string)      : Promise<void | Message>
+  public say (num:      number)      : Promise<void | Message>
+  public say (message:  Message)     : Promise<void | Message>
+  public say (contact:  Contact)     : Promise<void | Message>
+  public say (file:     FileBox)     : Promise<void | Message>
+  public say (mini:     MiniProgram) : Promise<void | Message>
+  public say (url:      UrlLink)     : Promise<void | Message>
 
   /**
    * > Tips:
-   * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/Chatie/wechaty/wiki/Puppet#3-puppet-compatible-table)
+   * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/wechaty/wechaty/wiki/Puppet#3-puppet-compatible-table)
    *
-   * @param {(string | Contact | FileBox | UrlLink)} textOrContactOrFileOrUrl
+   * @param {(string | Contact | FileBox | UrlLink | MiniProgram)} something
    * send text, Contact, or file to contact. </br>
    * You can use {@link https://www.npmjs.com/package/file-box|FileBox} to send file
-   * @returns {Promise<void>}
+   * @returns {Promise<void | Message>}
    * @example
    * const bot = new Wechaty()
    * await bot.start()
@@ -326,19 +349,22 @@ export class Contact extends Accessory implements Sayable {
    * // 1. send text to contact
    *
    * await contact.say('welcome to wechaty!')
+   * const msg = await contact.say('welcome to wechaty!') // only supported by puppet-padplus
    *
    * // 2. send media file to contact
    *
-   * import { FileBox }  from 'file-box'
-   * const fileBox1 = FileBox.fromUrl('https://chatie.io/wechaty/images/bot-qr-code.png')
+   * import { FileBox }  from 'wechaty'
+   * const fileBox1 = FileBox.fromUrl('https://wechaty.github.io/wechaty/images/bot-qr-code.png')
    * const fileBox2 = FileBox.fromFile('/tmp/text.txt')
    * await contact.say(fileBox1)
+   * const msg1 = await contact.say(fileBox1) // only supported by puppet-padplus
    * await contact.say(fileBox2)
+   * const msg2 = await contact.say(fileBox2) // only supported by puppet-padplus
    *
    * // 3. send contact card to contact
    *
    * const contactCard = bot.Contact.load('contactId')
-   * await contact.say(contactCard)
+   * const msg = await contact.say(contactCard) // only supported by puppet-padplus
    *
    * // 4. send url link to contact
    *
@@ -346,43 +372,91 @@ export class Contact extends Accessory implements Sayable {
    *   description : 'WeChat Bot SDK for Individual Account, Powered by TypeScript, Docker, and Love',
    *   thumbnailUrl: 'https://avatars0.githubusercontent.com/u/25162437?s=200&v=4',
    *   title       : 'Welcome to Wechaty',
-   *   url         : 'https://github.com/chatie/wechaty',
+   *   url         : 'https://github.com/wechaty/wechaty',
    * })
    * await contact.say(urlLink)
+   * const msg = await contact.say(urlLink) // only supported by puppet-padplus
+   *
+   * // 5. send mini program to contact
+   *
+   * const miniProgram = new MiniProgram ({
+   *   username           : 'gh_xxxxxxx',     //get from mp.weixin.qq.com
+   *   appid              : '',               //optional, get from mp.weixin.qq.com
+   *   title              : '',               //optional
+   *   pagepath           : '',               //optional
+   *   description        : '',               //optional
+   *   thumbnailurl       : '',               //optional
+   * })
+   * await contact.say(miniProgram)
+   * const msg = await contact.say(miniProgram) // only supported by puppet-padplus
    */
-  public async say (textOrContactOrFileOrUrl: string | Contact | FileBox | UrlLink): Promise<void> {
-    log.verbose('Contact', 'say(%s)', textOrContactOrFileOrUrl)
+  public async say (
+    something:  string
+              | number
+              | Message
+              | Contact
+              | FileBox
+              | MiniProgram
+              | UrlLink
+  ): Promise<void | Message> {
+    log.verbose('Contact', 'say(%s)', something)
 
-    if (typeof textOrContactOrFileOrUrl === 'string') {
+    if (something instanceof Message) {
+      return something.forward(this)
+    }
+
+    if (typeof something === 'number') {
+      something = String(something)
+    }
+
+    let msgId: string | void
+    if (typeof something === 'string') {
       /**
        * 1. Text
        */
-      await this.puppet.messageSendText({
-        contactId: this.id,
-      }, textOrContactOrFileOrUrl)
-    } else if (textOrContactOrFileOrUrl instanceof Contact) {
+      msgId = await this.wechaty.puppet.messageSendText(
+        this.id,
+        something,
+      )
+    } else if (something instanceof Contact) {
       /**
        * 2. Contact
        */
-      await this.puppet.messageSendContact({
-        contactId: this.id,
-      }, textOrContactOrFileOrUrl.id)
-    } else if (textOrContactOrFileOrUrl instanceof FileBox) {
+      msgId = await this.wechaty.puppet.messageSendContact(
+        this.id,
+        something.id,
+      )
+    } else if (something instanceof FileBox) {
       /**
        * 3. File
        */
-      await this.puppet.messageSendFile({
-        contactId: this.id,
-      }, textOrContactOrFileOrUrl)
-    } else if (textOrContactOrFileOrUrl instanceof UrlLink) {
+      msgId = await this.wechaty.puppet.messageSendFile(
+        this.id,
+        something,
+      )
+    } else if (something instanceof UrlLink) {
       /**
        * 4. Link Message
        */
-      await this.puppet.messageSendUrl({
-        contactId : this.id,
-      }, textOrContactOrFileOrUrl.payload)
+      msgId = await this.wechaty.puppet.messageSendUrl(
+        this.id,
+        something.payload,
+      )
+    } else if (something instanceof MiniProgram) {
+      /**
+       * 5. Mini Program
+       */
+      msgId = await this.wechaty.puppet.messageSendMiniProgram(
+        this.id,
+        something.payload,
+      )
     } else {
-      throw new Error('unsupported arg: ' + textOrContactOrFileOrUrl)
+      throw new Error('unsupported arg: ' + something)
+    }
+    if (msgId) {
+      const msg = this.wechaty.Message.load(msgId)
+      await msg.ready()
+      return msg
     }
   }
 
@@ -448,11 +522,12 @@ export class Contact extends Accessory implements Sayable {
     }
 
     try {
-      await this.puppet.contactAlias(this.id, newAlias)
-      await this.puppet.contactPayloadDirty(this.id)
-      this.payload = await this.puppet.contactPayload(this.id)
+      await this.wechaty.puppet.contactAlias(this.id, newAlias)
+      await this.wechaty.puppet.dirtyPayload(PayloadType.Contact, this.id)
+      this.payload = await this.wechaty.puppet.contactPayload(this.id)
       if (newAlias && newAlias !== this.payload.alias) {
         log.warn('Contact', 'alias(%s) sync with server fail: set(%s) is not equal to get(%s)',
+          newAlias,
           newAlias,
           this.payload.alias,
         )
@@ -464,24 +539,121 @@ export class Contact extends Accessory implements Sayable {
   }
 
   /**
+   * GET / SET / DELETE the phone list for a contact
    *
-   * @description
-   * Should use {@link Contact#friend} instead
+   * @param {(none | string[])} phoneList
+   * @returns {(Promise<string[] | void>)}
+   * @example <caption> GET the phone list for a contact, return {(Promise<string[]>)}</caption>
+   * const phoneList = await contact.phone()
+   * if (phone.length === 0) {
+   *   console.log('You have not yet set any phone number for contact ' + contact.name())
+   * } else {
+   *   console.log('You have already set phone numbers for contact ' + contact.name() + ':' + phoneList.join(','))
+   * }
    *
-   * @deprecated
-   * @private
+   * @example <caption>SET the phoneList for a contact</caption>
+   * try {
+   *   const phoneList = ['13999999999', '13888888888']
+   *   await contact.alias(phoneList)
+   *   console.log(`change ${contact.name()}'s phone successfully!`)
+   * } catch (e) {
+   *   console.log(`failed to change ${contact.name()} phone!`)
+   * }
    */
-  public stranger (): null | boolean {
-    log.warn('Contact', 'stranger() DEPRECATED. use friend() instead.')
-    if (!this.payload) return null
-    return !this.friend()
+  public async phone (): Promise<string[]>
+  public async phone (phoneList: string[]): Promise<void>
+  public async phone (phoneList?: string[]): Promise<string[] | void> {
+    log.silly('Contact', 'phone(%s)', phoneList === undefined ? '' : JSON.stringify(phoneList))
+
+    if (!this.payload) {
+      throw new Error('no payload')
+    }
+
+    if (typeof phoneList === 'undefined') {
+      return this.payload.phone
+    }
+
+    try {
+      await this.wechaty.puppet.contactPhone(this.id, phoneList)
+      await this.wechaty.puppet.dirtyPayload(PayloadType.Contact, this.id)
+      this.payload = await this.wechaty.puppet.contactPayload(this.id)
+    } catch (e) {
+      log.error('Contact', 'phone(%s) rejected: %s', JSON.stringify(phoneList), e.message)
+      Raven.captureException(e)
+    }
+  }
+
+  public async corporation (): Promise<string | null>
+  public async corporation (remark: string | null): Promise<void>
+  public async corporation (remark?: string | null): Promise<string | null | void> {
+    log.silly('Contact', 'corporation(%s)', remark)
+
+    if (!this.payload) {
+      throw new Error('no payload')
+    }
+
+    if (typeof remark === 'undefined') {
+      return this.payload.corporation || null
+    }
+
+    if (this.payload.type !== ContactType.Individual) {
+      throw new Error('Can not set corporation remark on non individual contact.')
+    }
+
+    try {
+      await this.wechaty.puppet.contactCorporationRemark(this.id, remark)
+      await this.wechaty.puppet.dirtyPayload(PayloadType.Contact, this.id)
+      this.payload = await this.wechaty.puppet.contactPayload(this.id)
+    } catch (e) {
+      log.error('Contact', 'corporation(%s) rejected: %s', remark, e.message)
+      Raven.captureException(e)
+    }
+  }
+
+  public async description (): Promise<string | null>
+  public async description (newDescription: string | null): Promise<void>
+  public async description (newDescription?: string | null): Promise<string | null | void> {
+    log.silly('Contact', 'description(%s)', newDescription)
+
+    if (!this.payload) {
+      throw new Error('no payload')
+    }
+
+    if (typeof newDescription === 'undefined') {
+      return this.payload.description || null
+    }
+
+    try {
+      await this.wechaty.puppet.contactDescription(this.id, newDescription)
+      await this.wechaty.puppet.dirtyPayload(PayloadType.Contact, this.id)
+      this.payload = await this.wechaty.puppet.contactPayload(this.id)
+    } catch (e) {
+      log.error('Contact', 'description(%s) rejected: %s', newDescription, e.message)
+      Raven.captureException(e)
+    }
+  }
+
+  public title (): string | null {
+    if (!this.payload) {
+      throw new Error('no payload')
+    }
+
+    return this.payload.title || null
+  }
+
+  public coworker (): boolean {
+    if (!this.payload) {
+      throw new Error('no payload')
+    }
+
+    return !!this.payload.coworker
   }
 
   /**
    * Check if contact is friend
    *
    * > Tips:
-   * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/Chatie/wechaty/wiki/Puppet#3-puppet-compatible-table)
+   * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/wechaty/wechaty/wiki/Puppet#3-puppet-compatible-table)
    *
    * @returns {boolean | null}
    *
@@ -496,33 +668,6 @@ export class Contact extends Accessory implements Sayable {
       return null
     }
     return this.payload.friend || null
-  }
-
-  /**
-   * @ignore
-   * @see {@link https://github.com/Chatie/webwx-app-tracker/blob/7c59d35c6ea0cff38426a4c5c912a086c4c512b2/formatted/webwxApp.js#L3243|webwxApp.js#L324}
-   * @see {@link https://github.com/Urinx/WeixinBot/blob/master/README.md|Urinx/WeixinBot/README}
-   */
-  /**
-   * @description
-   * Check if it's a offical account, should use {@link Contact#type} instead
-   * @deprecated
-   * @private
-   */
-  public official (): boolean {
-    log.warn('Contact', 'official() DEPRECATED. use type() instead')
-    return !!this.payload && (this.payload.type === ContactType.Official)
-  }
-
-  /**
-   * @description
-   * Check if it's a personal account, should use {@link Contact#type} instead
-   * @deprecated
-   * @private
-   */
-  public personal (): boolean {
-    log.warn('Contact', 'personal() DEPRECATED. use type() instead')
-    return !!this.payload && this.payload.type === ContactType.Personal
   }
 
   /**
@@ -551,7 +696,7 @@ export class Contact extends Accessory implements Sayable {
   }
 
   /**
-   * @private
+   * @ignore
    * TODO
    * Check if the contact is star contact.
    *
@@ -620,7 +765,7 @@ export class Contact extends Accessory implements Sayable {
     log.verbose('Contact', 'avatar()')
 
     try {
-      const fileBox = await this.puppet.contactAvatar(this.id)
+      const fileBox = await this.wechaty.puppet.contactAvatar(this.id)
       return fileBox
     } catch (e) {
       log.error('Contact', 'avatar() exception: %s', e.message)
@@ -629,19 +774,27 @@ export class Contact extends Accessory implements Sayable {
   }
 
   /**
-   * @description
-   * Force reload(re-ready()) data for Contact, use {@link Contact#sync} instead
+   * Get all tags of contact
    *
-   * @deprecated
-   * @private
+   * @returns {Promise<Tag[]>}
+   * @example
+   * const tags = await contact.tags()
    */
-  public refresh (): Promise<void> {
-    log.warn('Contact', 'refresh() DEPRECATED. use sync() instead.')
-    return this.sync()
+  public async tags (): Promise<Tag []> {
+    log.verbose('Contact', 'tags() for %s', this)
+
+    try {
+      const tagIdList = await this.wechaty.puppet.tagContactList(this.id)
+      const tagList = tagIdList.map(id => this.wechaty.Tag.load(id))
+      return tagList
+    } catch (e) {
+      log.error('Contact', 'tags() exception: %s', e.message)
+      return []
+    }
   }
 
   /**
-   * Force reload data for Contact, Sync data from lowlevel API again.
+   * Force reload data for Contact, Sync data from low-level API again.
    *
    * @returns {Promise<this>}
    * @example
@@ -655,14 +808,14 @@ export class Contact extends Accessory implements Sayable {
    * `ready()` is For FrameWork ONLY!
    *
    * Please not to use `ready()` at the user land.
-   * If you want to sync data, uyse `sync()` instead.
+   * If you want to sync data, use `sync()` instead.
    *
-   * @private
+   * @ignore
    */
   public async ready (
     forceSync = false,
   ): Promise<void> {
-    log.silly('Contact', 'ready() @ %s', this.puppet)
+    log.silly('Contact', 'ready() @ %s with id="%s"', this.wechaty.puppet, this.id)
 
     if (!forceSync && this.isReady()) { // already ready
       log.silly('Contact', 'ready() isReady() true')
@@ -671,14 +824,14 @@ export class Contact extends Accessory implements Sayable {
 
     try {
       if (forceSync) {
-        await this.puppet.contactPayloadDirty(this.id)
+        await this.wechaty.puppet.dirtyPayload(PayloadType.Contact, this.id)
       }
-      this.payload = await this.puppet.contactPayload(this.id)
-      // log.silly('Contact', `ready() this.puppet.contactPayload(%s) resolved`, this)
+      this.payload = await this.wechaty.puppet.contactPayload(this.id)
+      // log.silly('Contact', `ready() this.wechaty.puppet.contactPayload(%s) resolved`, this)
 
     } catch (e) {
-      log.verbose('Contact', `ready() this.puppet.contactPayload(%s) exception: %s`,
-        this,
+      log.verbose('Contact', 'ready() this.wechaty.puppet.contactPayload(%s) exception: %s',
+        this.id,
         e.message,
       )
       Raven.captureException(e)
@@ -687,7 +840,7 @@ export class Contact extends Accessory implements Sayable {
   }
 
   /**
-   * @private
+   * @ignore
    */
   public isReady (): boolean {
     return !!(this.payload && this.payload.name)
@@ -701,7 +854,7 @@ export class Contact extends Accessory implements Sayable {
    * const isSelf = contact.self()
    */
   public self (): boolean {
-    const userId = this.puppet.selfId()
+    const userId = this.wechaty.puppet.selfId()
 
     if (!userId) {
       return false
@@ -715,7 +868,7 @@ export class Contact extends Accessory implements Sayable {
    *
    * Sometimes cannot get weixin number due to weixin security mechanism, not recommend.
    *
-   * @private
+   * @ignore
    * @returns {string | null}
    * @example
    * const weixin = contact.weixin()
@@ -724,4 +877,22 @@ export class Contact extends Accessory implements Sayable {
     return (this.payload && this.payload.weixin) || null
   }
 
+}
+
+function wechatifyContact (wechaty: Wechaty): typeof Contact {
+
+  class WechatifiedContact extends Contact {
+
+    static get wechaty  () { return wechaty }
+    get wechaty        () { return wechaty }
+
+  }
+
+  return WechatifiedContact
+
+}
+
+export {
+  Contact,
+  wechatifyContact,
 }

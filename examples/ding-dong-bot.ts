@@ -1,7 +1,8 @@
 /**
- *   Wechaty - https://github.com/chatie/wechaty
+ *   Wechaty Chatbot SDK - https://github.com/wechaty/wechaty
  *
- *   @copyright 2016-2018 Huan LI <zixia@zixia.net>
+ *   @copyright 2016 Huan LI (李卓桓) <https://github.com/huan>, and
+ *                   Wechaty Contributors <https://github.com/wechaty>.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,11 +19,12 @@
  */
 import {
   Contact,
+  FileBox,
   Message,
+  ScanStatus,
   Wechaty,
-}           from '../src/' // from 'wechaty'
+}               from '../src/mod' // from 'wechaty'
 
-import { FileBox }  from 'file-box'
 import { generate } from 'qrcode-terminal'
 
 /**
@@ -70,26 +72,29 @@ bot.start()
  *  `scan`, `login`, `logout`, `error`, and `message`
  *
  */
-function onScan (qrcode: string, status: number) {
-  generate(qrcode, { small: true })
+function onScan (qrcode: string, status: ScanStatus) {
+  if (status === ScanStatus.Waiting || status === ScanStatus.Timeout) {
+    generate(qrcode)
 
-  // Generate a QR Code online via
-  // http://goqr.me/api/doc/create-qr-code/
-  const qrcodeImageUrl = [
-    'https://api.qrserver.com/v1/create-qr-code/?data=',
-    encodeURIComponent(qrcode),
-  ].join('')
+    const qrcodeImageUrl = [
+      'https://wechaty.js.org/qrcode/',
+      encodeURIComponent(qrcode),
+    ].join('')
 
-  console.info(`[${status}] ${qrcodeImageUrl}\nScan QR Code above to log in: `)
+    console.info('onScan: %s(%s) - %s', ScanStatus[status], status, qrcodeImageUrl)
+  } else {
+    console.info('onScan: %s(%s)', ScanStatus[status], status)
+  }
+
+  // console.info(`[${ScanStatus[status]}(${status})] ${qrcodeImageUrl}\nScan QR Code above to log in: `)
 }
 
 function onLogin (user: Contact) {
   console.info(`${user.name()} login`)
-  bot.say('Wechaty login').catch(console.error)
 }
 
 function onLogout (user: Contact) {
-  console.info(`${user.name()} logouted`)
+  console.info(`${user.name()} logged out`)
 }
 
 function onError (e: Error) {
@@ -110,14 +115,18 @@ function onError (e: Error) {
 async function onMessage (msg: Message) {
   console.info(msg.toString())
 
-  if (msg.age() > 60) {
-    console.info('Message discarded because its TOO OLD(than 1 minute)')
+  if (msg.self()) {
+    console.info('Message discarded because its outgoing')
+    return
+  }
+
+  if (msg.age() > 2 * 60) {
+    console.info('Message discarded because its TOO OLD(than 2 minutes)')
     return
   }
 
   if (msg.type() !== bot.Message.Type.Text
     || !/^(ding|ping|bing|code)$/i.test(msg.text())
-    /* && !msg.self() */
   ) {
     console.info('Message discarded because it does not match ding/ping/bing/code')
     return
@@ -132,7 +141,7 @@ async function onMessage (msg: Message) {
   /**
    * 2. reply image(qrcode image)
    */
-  const fileBox = FileBox.fromUrl('https://chatie.io/wechaty/images/bot-qr-code.png')
+  const fileBox = FileBox.fromUrl('https://wechaty.github.io/wechaty/images/bot-qr-code.png')
 
   await msg.say(fileBox)
   console.info('REPLY: %s', fileBox.toString())
@@ -161,7 +170,7 @@ const welcome = `
 |                                     |___/
 
 =============== Powered by Wechaty ===============
--------- https://github.com/chatie/wechaty --------
+-------- https://github.com/wechaty/wechaty --------
           Version: ${bot.version(true)}
 
 I'm a bot, my superpower is talk in Wechat.
