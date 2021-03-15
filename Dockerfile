@@ -1,4 +1,4 @@
-FROM ubuntu:eoan
+FROM debian:buster
 LABEL maintainer="Huan LI (李卓桓) <zixia@zixia.net>"
 
 ENV DEBIAN_FRONTEND     noninteractive
@@ -34,6 +34,7 @@ RUN apt-get update \
     tzdata \
     vim \
     wget \
+    libxtst6 \
   && apt-get purge --auto-remove \
   && rm -rf /tmp/* /var/lib/apt/lists/*
 
